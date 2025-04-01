@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Word Matching Quiz</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin: 20px;
+        }
+        .quiz-container {
+            display: flex;
+            justify-content: center;
+            gap: 50px;
+        }
+        .column {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .word, .translation {
+            padding: 10px;
+            border: 1px solid black;
+            cursor: pointer;
+            background-color: white;
+            width: 120px;
+            text-align: center;
+        }
+        .correct {
+            background-color: lightgreen;
+        }
+        .wrong {
+            background-color: lightcoral;
+        }
+        .selected {
+            background-color: lightblue;
+        }
+    </style>
+</head>
+<body>
+    <h1>Match the Words to Their German Translations</h1>
+    <div class="quiz-container">
+        <div class="column" id="words"></div>
+        <div class="column" id="translations"></div>
+    </div>
+    <script>
+        let dictionary = [];
+
+        // Function to add a word and its translations (multiple translations at once)
+        function updateDictionary(newWord, newTranslations) {
+            // Check if the word already exists in the dictionary
+            const existingWord = dictionary.find(wordObj => wordObj.german === newWord);
+            
+            if (existingWord) {
+                // If the word exists, loop through each translation and add it if it's not already there
+                newTranslations.forEach(translation => {
+                    if (!existingWord.english.includes(translation)) {
+                        existingWord.english.push(translation);
+                        console.log(`Translation added to "${newWord}": ${translation}`);
+                    } else {
+                        console.log(`The translation "${translation}" for "${newWord}" already exists.`);
+                    }
+                });
+            } else {
+                // If the word doesn't exist, add a new word object with the translations
+                const newWordObj = {
+                    german: newWord,
+                    english: [...newTranslations]  // Spread the array to ensure we copy the values
+                };
+                dictionary.push(newWordObj);
+                console.log(`New word added: ${newWord} with translations: ${newTranslations.join(", ")}`);
+            }
+        }
+
+        // Function to load dictionary from JSON file
+        async function loadDictionary() {
+            try {
+                const response = await fetch('dictionary.json');
+                dictionary = await response.json();
+                generateQuiz();  // Start the quiz once the dictionary is loaded
+            } catch (error) {
+                console.error("Error loading dictionary:", error);
+            }
+        }
+
+        let selectedWord = null;
+        let selectedTranslation = null;
+        
+        // Shuffle function to randomize array elements
+        function shuffle(array) {
+            return array.sort(() => Math.random() - 0.5);
+        }
+        
+        // Generate the quiz with 5 random word objects
+        function generateQuiz() {
+            const wordsContainer = document.getElementById("words");
+            const translationsContainer = document.getElementById("translations");
+            wordsContainer.innerHTML = "";
+            translationsContainer.innerHTML = "";
+            
+            // Pick 5 unique random word objects from the dictionary
+            const selectedWords = [];
+            while (selectedWords.length < 5) {
+                const randomIndex = Math.floor(Math.random() * dictionary.length);
+                const wordObj = dictionary[randomIndex];
+                
+                // Ensure no duplicates
+                if (!selectedWords.includes(wordObj)) {
+                    selectedWords.push(wordObj);
+                }
+            }
+            
+            // Create arrays for words and their translations
+            const words = selectedWords.map(wordObj => wordObj.german);
+            const translations = selectedWords.map(wordObj => {
+                // Randomly choose one English translation from the array
+                const randomTranslation = wordObj.english[Math.floor(Math.random() * wordObj.english.length)];
+                return randomTranslation;
+            });
+            
+            // Shuffle the translations for random order
+            shuffle(translations);
+            
+            // Create the word elements in the words container
+            words.forEach(word => {
+                const wordDiv = document.createElement("div");
+                wordDiv.className = "word";
+                wordDiv.innerText = word;
+                wordDiv.onclick = () => selectWord(wordDiv, word);
+                wordsContainer.appendChild(wordDiv);
+            });
+            
+            // Create the translation elements in the translations container
+            translations.forEach(translation => {
+                const translationDiv = document.createElement("div");
+                translationDiv.className = "translation";
+                translationDiv.innerText = translation;
+                translationDiv.onclick = () => selectTranslation(translationDiv, translation);
+                translationsContainer.appendChild(translationDiv);
+            });
+        }
+
+        // Select word handler
+        function selectWord(element, word) {
+            if (selectedWord) selectedWord.classList.remove("selected");
+            selectedWord = element;
+            selectedWord.classList.add("selected");
+            checkMatch();
+        }
+
+        // Select translation handler
+        function selectTranslation(element, translation) {
+            if (selectedTranslation) selectedTranslation.classList.remove("selected");
+            selectedTranslation = element;
+            selectedTranslation.classList.add("selected");
+            checkMatch();
+        }
+        
+        // Check if the selected word and translation match
+        function checkMatch() {
+            if (selectedWord && selectedTranslation) {
+                const wordText = selectedWord.innerText;
+                const translationText = selectedTranslation.innerText;
+                selectedWord.classList.remove("selected");
+                selectedTranslation.classList.remove("selected");
+                const correctTranslation = dictionary.find(item => item.german === wordText).english;
+
+                if (correctTranslation.includes(translationText)) {
+                    selectedWord.classList.add("correct");
+                    selectedTranslation.classList.add("correct");
+                    selectedWord.onclick = null;
+                    selectedTranslation.onclick = null;
+                } else {
+                    setTimeout((wordElement, translationElement) => {
+                        wordElement.classList.remove("wrong");
+                        translationElement.classList.remove("wrong");
+                    }, 1000, selectedWord, selectedTranslation);
+                    selectedWord.classList.add("wrong");
+                    selectedTranslation.classList.add("wrong");
+                }
+                selectedWord = null;
+                selectedTranslation = null;
+                
+                if (document.querySelectorAll(".correct").length === 10) {
+                    setTimeout(generateQuiz, 1000);
+                }
+            }
+        }
+
+        loadDictionary();
+    </script>
+</body>
+</html>
